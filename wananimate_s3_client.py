@@ -258,8 +258,9 @@ class WanAnimateS3Client:
         video_path: Optional[str] = None,
         prompt: str = "A person walking in a natural way",
         seed: int = 12345,
-        width: int = 832,
-        height: int = 480,
+        resolution_preset: str = "480p",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         fps: int = 16,
         cfg: float = 1.0,
         steps: int = 6,
@@ -269,21 +270,22 @@ class WanAnimateS3Client:
     ) -> Dict[str, Any]:
         """
         Create animation from local files (including S3 upload)
-        
+
         Args:
             image_path: Image file path
             video_path: Reference video file path (optional)
             prompt: Animation description text
             seed: Random seed for generation
-            width: Output width
-            height: Output height
+            resolution_preset: Resolution preset ("480p", "720p", or "1080p")
+            width: Output width (optional, overrides resolution_preset)
+            height: Output height (optional, overrides resolution_preset)
             fps: Frame rate
             cfg: Classifier-free guidance scale
             steps: Number of denoising steps
             points_store: JSON string containing positive control points
             coordinates: JSON string containing coordinate points
             neg_coordinates: JSON string containing negative coordinate points
-        
+
         Returns:
             Job result dictionary
         """
@@ -315,12 +317,17 @@ class WanAnimateS3Client:
         input_data = {
             "prompt": prompt,
             "seed": seed,
-            "width": width,
-            "height": height,
             "fps": fps,
             "cfg": cfg,
             "steps": steps
         }
+
+        # Add resolution handling: explicit dimensions take priority over preset
+        if width is not None and height is not None:
+            input_data["width"] = width
+            input_data["height"] = height
+        else:
+            input_data["resolution_preset"] = resolution_preset
         
         # Set image input
         input_data["image_path"] = image_s3_path
@@ -349,8 +356,9 @@ class WanAnimateS3Client:
         video_path: Optional[str] = None,
         prompt: str = "A person walking in a natural way",
         seed: int = 12345,
-        width: int = 832,
-        height: int = 480,
+        resolution_preset: str = "480p",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         fps: int = 16,
         cfg: float = 1.0,
         steps: int = 6,
@@ -359,20 +367,21 @@ class WanAnimateS3Client:
     ) -> Dict[str, Any]:
         """
         Create animation with control points from local files
-        
+
         Args:
             image_path: Image file path
             video_path: Reference video file path (optional)
             prompt: Animation description text
             seed: Random seed for generation
-            width: Output width
-            height: Output height
+            resolution_preset: Resolution preset ("480p", "720p", or "1080p")
+            width: Output width (optional, overrides resolution_preset)
+            height: Output height (optional, overrides resolution_preset)
             fps: Frame rate
             cfg: Classifier-free guidance scale
             steps: Number of denoising steps
             positive_points: List of positive control points [{"x": float, "y": float}]
             negative_points: List of negative control points [{"x": float, "y": float}]
-        
+
         Returns:
             Job result dictionary
         """
@@ -394,6 +403,7 @@ class WanAnimateS3Client:
             video_path=video_path,
             prompt=prompt,
             seed=seed,
+            resolution_preset=resolution_preset,
             width=width,
             height=height,
             fps=fps,
@@ -413,15 +423,16 @@ class WanAnimateS3Client:
         valid_video_extensions: tuple = ('.mp4', '.avi', '.mov', '.mkv'),
         prompt: str = "A person walking in a natural way",
         seed: int = 12345,
-        width: int = 832,
-        height: int = 480,
+        resolution_preset: str = "480p",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         fps: int = 16,
         cfg: float = 1.0,
         steps: int = 6
     ) -> Dict[str, Any]:
         """
         Batch process animations from folder
-        
+
         Args:
             image_folder_path: Folder path containing image files
             video_folder_path: Folder path containing video files (optional)
@@ -430,12 +441,13 @@ class WanAnimateS3Client:
             valid_video_extensions: Video file extensions to process
             prompt: Animation description text
             seed: Random seed for generation
-            width: Output width
-            height: Output height
+            resolution_preset: Resolution preset ("480p", "720p", or "1080p")
+            width: Output width (optional, overrides resolution_preset)
+            height: Output height (optional, overrides resolution_preset)
             fps: Frame rate
             cfg: Classifier-free guidance scale
             steps: Number of denoising steps
-        
+
         Returns:
             Batch processing result dictionary
         """
@@ -501,6 +513,7 @@ class WanAnimateS3Client:
                 video_path=video_path,
                 prompt=prompt,
                 seed=seed + i,  # Different seed for each file
+                resolution_preset=resolution_preset,
                 width=width,
                 height=height,
                 fps=fps,

@@ -166,6 +166,44 @@ def save_base64_to_file(base64_data, temp_dir, output_filename):
         logger.error(f"❌ Base64 디코딩 실패: {e}")
         raise Exception(f"Base64 디코딩 실패: {e}")
 
+def calculate_dimensions_from_preset(video_width, video_height, preset):
+    """
+    Calculate optimal dimensions based on resolution preset.
+    Maintains aspect ratio and rounds to multiples of 8.
+
+    Args:
+        video_width: Original video width (or assumed aspect ratio width)
+        video_height: Original video height (or assumed aspect ratio height)
+        preset: Resolution preset string ("480p", "720p", or "1080p")
+
+    Returns:
+        (width, height) tuple, rounded to multiples of 8
+    """
+    import math
+
+    PRESET_PIXELS = {
+        "480p": 399360,    # 832 × 480
+        "720p": 921600,    # 1280 × 720
+        "1080p": 2073600   # 1920 × 1080
+    }
+
+    target_pixels = PRESET_PIXELS.get(preset, 399360)
+    aspect_ratio = video_width / video_height
+
+    # Calculate dimensions maintaining aspect ratio
+    new_width = math.sqrt(target_pixels * aspect_ratio)
+    new_height = math.sqrt(target_pixels / aspect_ratio)
+
+    # Round to multiple of 8 (required for video encoding)
+    new_width = round(new_width / 8) * 8
+    new_height = round(new_height / 8) * 8
+
+    # Enforce reasonable limits (prevent extremely narrow/wide videos)
+    new_width = max(480, min(2560, int(new_width)))
+    new_height = max(480, min(1440, int(new_height)))
+
+    return int(new_width), int(new_height)
+
 def handler(job):
     job_input = job.get("input", {})
 
@@ -201,6 +239,28 @@ def handler(job):
 
     check_coord = job_input.get("points_store", None)
 
+    # Determine dimensions based on priority: explicit > preset > default
+    if "width" in job_input and "height" in job_input:
+        # Priority 1: Explicit dimensions provided (highest priority)
+        width = job_input["width"]
+        height = job_input["height"]
+        logger.info(f"📐 Using explicit dimensions: {width}x{height}")
+    elif "resolution_preset" in job_input:
+        # Priority 2: Calculate from resolution preset
+        preset = job_input["resolution_preset"]
+        if preset not in ["480p", "720p", "1080p"]:
+            raise Exception(f"Invalid resolution_preset: {preset}. Must be one of: 480p, 720p, 1080p")
+
+        # Assume 16:9 aspect ratio (1920:1080) as default
+        # ComfyUI's VHS_LoadVideo will handle actual video scaling based on these target dimensions
+        video_width, video_height = 1920, 1080
+        width, height = calculate_dimensions_from_preset(video_width, video_height, preset)
+        logger.info(f"📐 Using resolution preset '{preset}': {width}x{height}")
+    else:
+        # Priority 3: Default to 480p
+        width = 832
+        height = 480
+        logger.info(f"📐 Using default dimensions (480p): {width}x{height}")
 
     if check_coord == None:
         if job_input.get("mode", "replace") == "animate":
@@ -216,8 +276,8 @@ def handler(job):
         prompt["27"]["inputs"]["seed"] = job_input["seed"]
         prompt["27"]["inputs"]["cfg"] = job_input["cfg"]
         prompt["27"]["inputs"]["steps"] = job_input.get("steps", 4)
-        prompt["150"]["inputs"]["value"] = job_input["width"]
-        prompt["151"]["inputs"]["value"] = job_input["height"]
+        prompt["150"]["inputs"]["value"] = width
+        prompt["151"]["inputs"]["value"] = height
     else:
         if job_input.get("mode", "replace") == "animate":
             prompt = load_workflow('/newWanAnimate_point_animate_api.json')
@@ -232,8 +292,8 @@ def handler(job):
         prompt["27"]["inputs"]["seed"] = job_input["seed"]
         prompt["27"]["inputs"]["cfg"] = job_input["cfg"]
         prompt["27"]["inputs"]["steps"] = job_input.get("steps", 4)
-        prompt["150"]["inputs"]["value"] = job_input["width"]
-        prompt["151"]["inputs"]["value"] = job_input["height"]
+        prompt["150"]["inputs"]["value"] = width
+        prompt["151"]["inputs"]["value"] = height
 
         prompt["107"]["inputs"]["points_store"] = job_input["points_store"]
         prompt["107"]["inputs"]["coordinates"] = job_input["coordinates"]
