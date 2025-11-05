@@ -259,7 +259,7 @@ If the job fails, it returns a JSON object containing an error message.
 
 ```json
 {
-  "error": "비디오를 찾을 수 없습니다."
+  "error": "Video not found."
 }
 ```
 
